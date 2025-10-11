@@ -6,10 +6,11 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import { toObjectId } from '@/lib/utils';
 import Movie from '@/models/Movie';
 import Rating from '@/models/Rating';
+import User from '@/models/User';
 
 export async function POST(request) {
   try {
@@ -53,15 +54,15 @@ export async function POST(request) {
       );
     }
 
-    // Convertir userId string a ObjectId de forma segura
-    const userId = toObjectId(session.user.id);
-    
-    if (!userId) {
+    // Obtener el usuario real de la BD para obtener su _id
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
       return NextResponse.json(
-        { error: 'ID de usuario inválido' },
-        { status: 400 }
+        { error: 'Usuario no encontrado' },
+        { status: 404 }
       );
     }
+    const userId = user._id;
 
     // Upsert rating (crear o actualizar)
     const updatedRating = await Rating.findOneAndUpdate(
@@ -127,14 +128,12 @@ export async function GET(request) {
       return NextResponse.json({ rating: null });
     }
 
-    const userId = toObjectId(session.user.id);
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'ID de usuario inválido' },
-        { status: 400 }
-      );
+    // Obtener el usuario real de la BD para obtener su _id
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
+      return NextResponse.json({ rating: null });
     }
+    const userId = user._id;
     
     const rating = await Rating.findOne({
       userId: userId,

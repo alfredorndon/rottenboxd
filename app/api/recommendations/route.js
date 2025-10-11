@@ -6,8 +6,9 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import { toObjectId } from '@/lib/utils';
+import User from '@/models/User';
 import { getHybridRecommendations, getRecommendationType } from '@/lib/reco/hybrid';
 
 export async function GET(request) {
@@ -27,15 +28,15 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit')) || 20;
 
-    // Convertir userId string a ObjectId de forma segura
-    const userId = toObjectId(session.user.id);
-    
-    if (!userId) {
+    // Obtener el usuario real de la BD para obtener su _id
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
       return NextResponse.json(
-        { error: 'ID de usuario inválido' },
-        { status: 400 }
+        { error: 'Usuario no encontrado' },
+        { status: 404 }
       );
     }
+    const userId = user._id;
 
     // Obtener recomendaciones híbridas
     const recommendations = await getHybridRecommendations(userId, limit);
