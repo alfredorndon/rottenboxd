@@ -1,0 +1,13 @@
+# MongoDB Connection String
+MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/<db>?retryWrites=true&w=majority
+
+# TMDb API v4 Bearer Token (NO API Key v3)
+TMDB_API_KEY=<tmdb_bearer_v4_token>
+
+# NextAuth Configuration
+NEXTAUTH_SECRET=<random_long_string_at_least_32_chars>
+NEXTAUTH_URL=http://localhost:3000
+
+# Environment
+NODE_ENV=development
+

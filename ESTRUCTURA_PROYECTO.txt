@@ -1,0 +1,88 @@
+.
+|-- app
+|   |-- api
+|   |   |-- auth
+|   |   |-- movies
+|   |   |-- ratings
+|   |   `-- recommendations
+|   |-- components
+|   |   |-- Button.jsx
+|   |   |-- ClientSessionProvider.jsx
+|   |   |-- Footer.jsx
+|   |   |-- Input.jsx
+|   |   |-- MovieCard.jsx
+|   |   |-- Navbar.jsx
+|   |   `-- StarRating.jsx
+|   |-- favicon.ico
+|   |-- globals.css
+|   |-- layout.js
+|   |-- login
+|   |   `-- page.jsx
+|   |-- movie
+|   |   `-- [tmdbId]
+|   |-- page.js
+|   |-- page.jsx
+|   |-- profile
+|   |   `-- page.jsx
+|   `-- signup
+|       `-- page.jsx
+|-- ARCHIVOS_CREADOS.md
+|-- ENV_EXAMPLE.txt
+|-- eslint.config.mjs
+|-- ESTRUCTURA_PROYECTO.txt
+|-- INICIO_RAPIDO.md
+|-- INSTALACION.md
+|-- jsconfig.json
+|-- lib
+|   |-- db.js
+|   |-- log.js
+|   |-- reco
+|   |   |-- contentBased.js
+|   |   `-- hybrid.js
+|   |-- tmdb.js
+|   `-- user.js
+|-- models
+|   |-- Movie.js
+|   |-- Rating.js
+|   `-- User.js
+|-- next.config.mjs
+|-- package.json
+|-- package-lock.json
+|-- postcss.config.mjs
+|-- public
+|   |-- file.svg
+|   |-- globe.svg
+|   |-- next.svg
+|   |-- placeholder.png
+|   |-- vercel.svg
+|   `-- window.svg
+|-- README.md
+`-- scripts
+    |-- seed-tmdb.js
+    `-- smoke-tests.js
+
+18 directories, 44 files
+./app/components/Button.jsx
+./app/components/ClientSessionProvider.jsx
+./app/components/Footer.jsx
+./app/components/Input.jsx
+./app/components/MovieCard.jsx
+./app/components/Navbar.jsx
+./app/components/StarRating.jsx
+./app/layout.js
+./app/login/page.jsx
+./app/page.js
+./app/page.jsx
+./app/profile/page.jsx
+./app/signup/page.jsx
+./lib/db.js
+./lib/log.js
+./lib/reco/contentBased.js
+./lib/reco/hybrid.js
+./lib/tmdb.js
+./lib/user.js
+./models/Movie.js
+./models/Rating.js
+./models/User.js
+./scripts/seed-tmdb.js
+./scripts/smoke-tests.js

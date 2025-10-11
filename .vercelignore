@@ -1,0 +1,27 @@
+# Archivos que NO se deben desplegar en Vercel
+.env.local
+.env
+.env.development
+.env.test
+.env.production
+
+# Scripts que solo se usan localmente
+scripts/
+*.md
+*.txt
+
+# Logs
+*.log
+logs/
+
+# Dependencies locales
+node_modules/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.DS_Store
+*.tgz
+*.tar.gz
