@@ -6,8 +6,8 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
+import { toObjectId } from '@/lib/utils';
 import Movie from '@/models/Movie';
 import Rating from '@/models/Rating';
 
@@ -53,8 +53,15 @@ export async function POST(request) {
       );
     }
 
-    // Convertir userId string a ObjectId
-    const userId = new mongoose.Types.ObjectId(session.user.id);
+    // Convertir userId string a ObjectId de forma segura
+    const userId = toObjectId(session.user.id);
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ID de usuario inválido' },
+        { status: 400 }
+      );
+    }
 
     // Upsert rating (crear o actualizar)
     const updatedRating = await Rating.findOneAndUpdate(
@@ -120,7 +127,14 @@ export async function GET(request) {
       return NextResponse.json({ rating: null });
     }
 
-    const userId = new mongoose.Types.ObjectId(session.user.id);
+    const userId = toObjectId(session.user.id);
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ID de usuario inválido' },
+        { status: 400 }
+      );
+    }
     
     const rating = await Rating.findOne({
       userId: userId,

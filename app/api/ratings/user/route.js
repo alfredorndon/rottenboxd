@@ -6,8 +6,8 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
+import { toObjectId } from '@/lib/utils';
 import Rating from '@/models/Rating';
 
 export async function GET(request) {
@@ -23,8 +23,15 @@ export async function GET(request) {
 
     await dbConnect();
 
-    // Convertir userId string a ObjectId
-    const userId = new mongoose.Types.ObjectId(session.user.id);
+    // Convertir userId string a ObjectId de forma segura
+    const userId = toObjectId(session.user.id);
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'ID de usuario inválido' },
+        { status: 400 }
+      );
+    }
 
     // Obtener ratings del usuario con populate de movieId
     const ratings = await Rating.find({ userId: userId })
