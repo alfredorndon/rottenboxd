@@ -10,7 +10,6 @@ const MovieSchema = new mongoose.Schema({
   tmdbId: {
     type: Number,
     required: true,
-    unique: true,
   },
   title: {
     type: String,
