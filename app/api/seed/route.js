@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Movie from '@/models/Movie';
-import { tmdbFetch } from '@/lib/tmdb';
+import { tmdb } from '@/lib/tmdb';
 
 export async function POST(request) {
   try {
@@ -29,12 +29,12 @@ export async function POST(request) {
     for (let page = 1; page <= PAGES; page++) {
       console.log(`📄 Descargando página ${page}/${PAGES}...`);
 
-      const popularData = await tmdbFetch(`/movie/popular?language=es-MX&page=${page}`);
+      const popularData = await tmdb(`/movie/popular?language=es-MX&page=${page}`);
       
       for (const movieData of popularData.results) {
         try {
-          const details = await tmdbFetch(`/movie/${movieData.id}?language=es-MX`);
-          const keywordsData = await tmdbFetch(`/movie/${movieData.id}/keywords`);
+          const details = await tmdb(`/movie/${movieData.id}?language=es-MX`);
+          const keywordsData = await tmdb(`/movie/${movieData.id}/keywords`);
 
           const movieDoc = {
             tmdbId: details.id,
