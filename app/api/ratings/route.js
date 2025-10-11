@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Movie from '@/models/Movie';
 import Rating from '@/models/Rating';
@@ -52,14 +53,17 @@ export async function POST(request) {
       );
     }
 
+    // Convertir userId string a ObjectId
+    const userId = new mongoose.Types.ObjectId(session.user.id);
+
     // Upsert rating (crear o actualizar)
     const updatedRating = await Rating.findOneAndUpdate(
       {
-        userId: session.user.id,
+        userId: userId,
         movieId: movie._id,
       },
       {
-        userId: session.user.id,
+        userId: userId,
         movieId: movie._id,
         rating,
         updatedAt: new Date(),
@@ -116,8 +120,10 @@ export async function GET(request) {
       return NextResponse.json({ rating: null });
     }
 
+    const userId = new mongoose.Types.ObjectId(session.user.id);
+    
     const rating = await Rating.findOne({
-      userId: session.user.id,
+      userId: userId,
       movieId: movie._id,
     });
 

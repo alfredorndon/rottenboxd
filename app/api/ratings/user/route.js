@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Rating from '@/models/Rating';
 
@@ -22,8 +23,11 @@ export async function GET(request) {
 
     await dbConnect();
 
+    // Convertir userId string a ObjectId
+    const userId = new mongoose.Types.ObjectId(session.user.id);
+
     // Obtener ratings del usuario con populate de movieId
-    const ratings = await Rating.find({ userId: session.user.id })
+    const ratings = await Rating.find({ userId: userId })
       .populate('movieId')
       .sort({ createdAt: -1 })
       .limit(50);
