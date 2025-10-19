@@ -103,13 +103,21 @@ export async function PUT(request) {
     }
 
     // Buscar usuario actual
-    const user = await User.findOne({ email: session.user.email });
+    const user = await User.findOne({ email: session.user.email }).select('+passwordHash');
     
     if (!user) {
       console.log('Usuario no encontrado');
       return NextResponse.json(
         { error: 'Usuario no encontrado' },
         { status: 404 }
+      );
+    }
+
+    if (!user.passwordHash) {
+      console.log('Usuario sin passwordHash');
+      return NextResponse.json(
+        { error: 'Error en datos del usuario' },
+        { status: 500 }
       );
     }
 
@@ -134,14 +142,22 @@ export async function PUT(request) {
       }
 
       // Verificar contraseña actual
-      if (currentPassword && typeof currentPassword === 'string') {
-        const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
-        
-        if (!isValidPassword) {
-          console.log('Contraseña actual incorrecta');
+      if (currentPassword && typeof currentPassword === 'string' && currentPassword.trim() !== '') {
+        try {
+          const isValidPassword = await bcrypt.compare(currentPassword.trim(), user.passwordHash);
+          
+          if (!isValidPassword) {
+            console.log('Contraseña actual incorrecta');
+            return NextResponse.json(
+              { error: 'La contraseña actual es incorrecta' },
+              { status: 400 }
+            );
+          }
+        } catch (compareError) {
+          console.error('Error al comparar contraseña:', compareError);
           return NextResponse.json(
-            { error: 'La contraseña actual es incorrecta' },
-            { status: 400 }
+            { error: 'Error al verificar contraseña actual' },
+            { status: 500 }
           );
         }
       } else {
