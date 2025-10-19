@@ -9,9 +9,10 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ClientOnly from './ClientOnly';
 
 export default function Navbar() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -55,34 +56,8 @@ export default function Navbar() {
               Películas
             </Link>
             
-            {session ? (
-              <>
-                <Link 
-                  href="/dashboard" 
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <Link 
-                  href="/profile" 
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Perfil
-                </Link>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-400">
-                    {session.user.name}
-                  </span>
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
-                    className="text-sm text-gray-300 hover:text-white transition-colors"
-                  >
-                    Salir
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
+            <ClientOnly fallback={
+              <div className="flex items-center gap-3">
                 <Link 
                   href="/login" 
                   className="text-gray-300 hover:text-white transition-colors"
@@ -95,8 +70,51 @@ export default function Navbar() {
                 >
                   Registrarse
                 </Link>
-              </>
-            )}
+              </div>
+            }>
+              {session ? (
+                <>
+                  <Link 
+                    href="/dashboard" 
+                    className="text-gray-300 hover:text-white transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                  <Link 
+                    href="/profile" 
+                    className="text-gray-300 hover:text-white transition-colors"
+                  >
+                    Perfil
+                  </Link>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-400">
+                      {session.user.name}
+                    </span>
+                    <button
+                      onClick={() => signOut({ callbackUrl: '/' })}
+                      className="text-sm text-gray-300 hover:text-white transition-colors"
+                    >
+                      Salir
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    href="/login" 
+                    className="text-gray-300 hover:text-white transition-colors"
+                  >
+                    Iniciar Sesión
+                  </Link>
+                  <Link 
+                    href="/signup" 
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                  >
+                    Registrarse
+                  </Link>
+                </>
+              )}
+            </ClientOnly>
           </div>
         </div>
       </div>

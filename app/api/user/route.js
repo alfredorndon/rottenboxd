@@ -10,11 +10,12 @@ import { getServerSession } from 'next-auth/next';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import Rating from '@/models/Rating';
-import bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '@/lib/user';
+import { authOptions } from '@/lib/authOptions';
 
 export async function GET(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
       return NextResponse.json(
@@ -54,12 +55,9 @@ export async function GET(request) {
 
 export async function PUT(request) {
   try {
-    console.log('PUT /api/user - Iniciando...');
-    
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
-      console.log('Error: No autenticado');
       return NextResponse.json(
         { error: 'No autenticado' },
         { status: 401 }
@@ -69,59 +67,17 @@ export async function PUT(request) {
     await dbConnect();
 
     const body = await request.json();
-    console.log('Datos recibidos:', { 
-      name: body.name, 
-      hasCurrentPassword: !!body.currentPassword, 
-      hasNewPassword: !!body.newPassword,
-      nameType: typeof body.name,
-      currentPasswordType: typeof body.currentPassword,
-      newPasswordType: typeof body.newPassword
-    });
-    
     const { name, currentPassword, newPassword } = body;
-
-    // Validar tipos de datos
-    if (name !== undefined && typeof name !== 'string') {
-      return NextResponse.json(
-        { error: 'El nombre debe ser una cadena de texto' },
-        { status: 400 }
-      );
-    }
-    
-    if (currentPassword !== undefined && typeof currentPassword !== 'string') {
-      return NextResponse.json(
-        { error: 'La contraseña actual debe ser una cadena de texto' },
-        { status: 400 }
-      );
-    }
-    
-    if (newPassword !== undefined && typeof newPassword !== 'string') {
-      return NextResponse.json(
-        { error: 'La nueva contraseña debe ser una cadena de texto' },
-        { status: 400 }
-      );
-    }
 
     // Buscar usuario actual
     const user = await User.findOne({ email: session.user.email }).select('+passwordHash');
     
     if (!user) {
-      console.log('Usuario no encontrado');
       return NextResponse.json(
         { error: 'Usuario no encontrado' },
         { status: 404 }
       );
     }
-
-    if (!user.passwordHash) {
-      console.log('Usuario sin passwordHash');
-      return NextResponse.json(
-        { error: 'Error en datos del usuario' },
-        { status: 500 }
-      );
-    }
-
-    console.log('Usuario encontrado:', user.email);
 
     // Preparar datos de actualización
     const updateData = {};
@@ -129,11 +85,10 @@ export async function PUT(request) {
     // Actualizar nombre si se proporciona
     if (name && name.trim() !== '') {
       updateData.name = name.trim();
-      console.log('Actualizando nombre a:', updateData.name);
     }
 
     // Actualizar contraseña si se proporciona
-    if (newPassword && typeof newPassword === 'string' && newPassword.trim() !== '') {
+    if (newPassword && newPassword.trim() !== '') {
       if (newPassword.length < 6) {
         return NextResponse.json(
           { error: 'La nueva contraseña debe tener al menos 6 caracteres' },
@@ -142,22 +97,13 @@ export async function PUT(request) {
       }
 
       // Verificar contraseña actual
-      if (currentPassword && typeof currentPassword === 'string' && currentPassword.trim() !== '') {
-        try {
-          const isValidPassword = await bcrypt.compare(currentPassword.trim(), user.passwordHash);
-          
-          if (!isValidPassword) {
-            console.log('Contraseña actual incorrecta');
-            return NextResponse.json(
-              { error: 'La contraseña actual es incorrecta' },
-              { status: 400 }
-            );
-          }
-        } catch (compareError) {
-          console.error('Error al comparar contraseña:', compareError);
+      if (currentPassword) {
+        const isValidPassword = await verifyPassword(currentPassword, user.passwordHash);
+        
+        if (!isValidPassword) {
           return NextResponse.json(
-            { error: 'Error al verificar contraseña actual' },
-            { status: 500 }
+            { error: 'La contraseña actual es incorrecta' },
+            { status: 400 }
           );
         }
       } else {
@@ -167,18 +113,7 @@ export async function PUT(request) {
         );
       }
 
-      // Hashear nueva contraseña
-      try {
-        const salt = await bcrypt.genSalt(10);
-        updateData.passwordHash = await bcrypt.hash(newPassword.trim(), salt);
-        console.log('Contraseña actualizada');
-      } catch (hashError) {
-        console.error('Error al hashear contraseña:', hashError);
-        return NextResponse.json(
-          { error: 'Error al procesar la contraseña' },
-          { status: 500 }
-        );
-      }
+      updateData.passwordHash = await hashPassword(newPassword);
     }
 
     // Verificar que hay algo que actualizar
@@ -189,24 +124,19 @@ export async function PUT(request) {
       );
     }
 
-    console.log('Actualizando con datos:', Object.keys(updateData));
-
     // Actualizar usuario
     const updatedUser = await User.findByIdAndUpdate(
       user._id,
       updateData,
-      { new: true, runValidators: true }
+      { new: true }
     ).select('-passwordHash');
 
     if (!updatedUser) {
-      console.log('Error: Usuario no se pudo actualizar');
       return NextResponse.json(
         { error: 'Error al actualizar usuario' },
         { status: 500 }
       );
     }
-
-    console.log('Usuario actualizado exitosamente');
 
     return NextResponse.json({
       message: 'Perfil actualizado exitosamente',
@@ -218,9 +148,9 @@ export async function PUT(request) {
       }
     });
   } catch (error) {
-    console.error('Error detallado:', error);
+    console.error('Error al actualizar usuario:', error);
     return NextResponse.json(
-      { error: `Error al actualizar perfil: ${error.message}` },
+      { error: 'Error al actualizar perfil' },
       { status: 500 }
     );
   }
@@ -228,7 +158,7 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
       return NextResponse.json(
