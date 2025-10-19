@@ -10,7 +10,7 @@ import { getServerSession } from 'next-auth/next';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import Rating from '@/models/Rating';
-import { hashPassword } from '@/lib/user';
+import bcrypt from 'bcryptjs';
 
 export async function GET(request) {
   try {
@@ -54,9 +54,12 @@ export async function GET(request) {
 
 export async function PUT(request) {
   try {
+    console.log('PUT /api/user - Iniciando...');
+    
     const session = await getServerSession();
     
     if (!session || !session.user) {
+      console.log('Error: No autenticado');
       return NextResponse.json(
         { error: 'No autenticado' },
         { status: 401 }
@@ -66,16 +69,26 @@ export async function PUT(request) {
     await dbConnect();
 
     const body = await request.json();
+    console.log('Datos recibidos:', { 
+      name: body.name, 
+      hasCurrentPassword: !!body.currentPassword, 
+      hasNewPassword: !!body.newPassword 
+    });
+    
     const { name, currentPassword, newPassword } = body;
 
     // Buscar usuario actual
     const user = await User.findOne({ email: session.user.email });
+    
     if (!user) {
+      console.log('Usuario no encontrado');
       return NextResponse.json(
         { error: 'Usuario no encontrado' },
         { status: 404 }
       );
     }
+
+    console.log('Usuario encontrado:', user.email);
 
     // Preparar datos de actualización
     const updateData = {};
@@ -83,6 +96,7 @@ export async function PUT(request) {
     // Actualizar nombre si se proporciona
     if (name && name.trim() !== '') {
       updateData.name = name.trim();
+      console.log('Actualizando nombre a:', updateData.name);
     }
 
     // Actualizar contraseña si se proporciona
@@ -94,12 +108,12 @@ export async function PUT(request) {
         );
       }
 
-      // Verificar contraseña actual si se proporciona
+      // Verificar contraseña actual
       if (currentPassword) {
-        const bcrypt = await import('bcryptjs');
         const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
         
         if (!isValidPassword) {
+          console.log('Contraseña actual incorrecta');
           return NextResponse.json(
             { error: 'La contraseña actual es incorrecta' },
             { status: 400 }
@@ -112,15 +126,38 @@ export async function PUT(request) {
         );
       }
 
-      updateData.passwordHash = await hashPassword(newPassword);
+      // Hashear nueva contraseña
+      const salt = await bcrypt.genSalt(10);
+      updateData.passwordHash = await bcrypt.hash(newPassword, salt);
+      console.log('Contraseña actualizada');
     }
+
+    // Verificar que hay algo que actualizar
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: 'No hay datos para actualizar' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Actualizando con datos:', Object.keys(updateData));
 
     // Actualizar usuario
     const updatedUser = await User.findByIdAndUpdate(
       user._id,
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     ).select('-passwordHash');
+
+    if (!updatedUser) {
+      console.log('Error: Usuario no se pudo actualizar');
+      return NextResponse.json(
+        { error: 'Error al actualizar usuario' },
+        { status: 500 }
+      );
+    }
+
+    console.log('Usuario actualizado exitosamente');
 
     return NextResponse.json({
       message: 'Perfil actualizado exitosamente',
@@ -132,9 +169,9 @@ export async function PUT(request) {
       }
     });
   } catch (error) {
-    console.error('Error al actualizar usuario:', error);
+    console.error('Error detallado:', error);
     return NextResponse.json(
-      { error: 'Error al actualizar perfil' },
+      { error: `Error al actualizar perfil: ${error.message}` },
       { status: 500 }
     );
   }
