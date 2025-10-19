@@ -72,10 +72,35 @@ export async function PUT(request) {
     console.log('Datos recibidos:', { 
       name: body.name, 
       hasCurrentPassword: !!body.currentPassword, 
-      hasNewPassword: !!body.newPassword 
+      hasNewPassword: !!body.newPassword,
+      nameType: typeof body.name,
+      currentPasswordType: typeof body.currentPassword,
+      newPasswordType: typeof body.newPassword
     });
     
     const { name, currentPassword, newPassword } = body;
+
+    // Validar tipos de datos
+    if (name !== undefined && typeof name !== 'string') {
+      return NextResponse.json(
+        { error: 'El nombre debe ser una cadena de texto' },
+        { status: 400 }
+      );
+    }
+    
+    if (currentPassword !== undefined && typeof currentPassword !== 'string') {
+      return NextResponse.json(
+        { error: 'La contraseña actual debe ser una cadena de texto' },
+        { status: 400 }
+      );
+    }
+    
+    if (newPassword !== undefined && typeof newPassword !== 'string') {
+      return NextResponse.json(
+        { error: 'La nueva contraseña debe ser una cadena de texto' },
+        { status: 400 }
+      );
+    }
 
     // Buscar usuario actual
     const user = await User.findOne({ email: session.user.email });
@@ -100,7 +125,7 @@ export async function PUT(request) {
     }
 
     // Actualizar contraseña si se proporciona
-    if (newPassword && newPassword.trim() !== '') {
+    if (newPassword && typeof newPassword === 'string' && newPassword.trim() !== '') {
       if (newPassword.length < 6) {
         return NextResponse.json(
           { error: 'La nueva contraseña debe tener al menos 6 caracteres' },
@@ -109,7 +134,7 @@ export async function PUT(request) {
       }
 
       // Verificar contraseña actual
-      if (currentPassword) {
+      if (currentPassword && typeof currentPassword === 'string') {
         const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
         
         if (!isValidPassword) {
@@ -127,9 +152,17 @@ export async function PUT(request) {
       }
 
       // Hashear nueva contraseña
-      const salt = await bcrypt.genSalt(10);
-      updateData.passwordHash = await bcrypt.hash(newPassword, salt);
-      console.log('Contraseña actualizada');
+      try {
+        const salt = await bcrypt.genSalt(10);
+        updateData.passwordHash = await bcrypt.hash(newPassword.trim(), salt);
+        console.log('Contraseña actualizada');
+      } catch (hashError) {
+        console.error('Error al hashear contraseña:', hashError);
+        return NextResponse.json(
+          { error: 'Error al procesar la contraseña' },
+          { status: 500 }
+        );
+      }
     }
 
     // Verificar que hay algo que actualizar
