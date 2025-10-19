@@ -98,13 +98,34 @@ async function seedMovies() {
     console.log('✅ MongoDB conectado\n');
 
     let totalMovies = 0;
-    const PAGES = 5; // Número de páginas a descargar (20 películas por página)
+    let newMovies = 0;
+    let existingMovies = 0;
+    const TARGET_TOTAL = 500; // Total deseado de películas
+    const PAGES = 15; // Más páginas para encontrar películas nuevas
 
     for (let page = 1; page <= PAGES; page++) {
       console.log(`📄 Descargando página ${page}/${PAGES}...`);
 
-      // Obtener películas populares
-      const popularData = await tmdbFetch(`/movie/popular?language=es-MX&page=${page}`);
+      // Obtener diferentes tipos de películas para máxima variedad
+      // Empezar desde páginas más altas para encontrar películas nuevas
+      const basePage = Math.ceil(page/4) + 30; // Empezar desde página 31
+      let endpoint;
+      switch (page % 4) {
+        case 0:
+          endpoint = `/movie/popular?language=es-MX&page=${basePage}`;
+          break;
+        case 1:
+          endpoint = `/movie/top_rated?language=es-MX&page=${basePage}`;
+          break;
+        case 2:
+          endpoint = `/movie/now_playing?language=es-MX&page=${basePage}`;
+          break;
+        case 3:
+          endpoint = `/movie/upcoming?language=es-MX&page=${basePage}`;
+          break;
+      }
+      
+      const popularData = await tmdbFetch(endpoint);
       
       for (const movieData of popularData.results) {
         try {
@@ -131,25 +152,54 @@ async function seedMovies() {
             popularity: details.popularity || 0, // Solo para algoritmo de cold-start
           };
 
-          // Upsert en MongoDB
-          await Movie.findOneAndUpdate(
-            { tmdbId: movieDoc.tmdbId },
-            movieDoc,
-            { upsert: true, new: true }
-          );
+          // Verificar si la película ya existe
+          const existingMovie = await Movie.findOne({ tmdbId: movieDoc.tmdbId });
+          
+          if (existingMovie) {
+            // Actualizar película existente con datos más recientes
+            await Movie.findOneAndUpdate(
+              { tmdbId: movieDoc.tmdbId },
+              movieDoc,
+              { new: true }
+            );
+            existingMovies++;
+            console.log(`  ♻️  Actualizada: ${movieDoc.title} (${movieDoc.year})`);
+          } else {
+            // Crear nueva película
+            await Movie.create(movieDoc);
+            newMovies++;
+            console.log(`  ✨ Nueva: ${movieDoc.title} (${movieDoc.year})`);
+          }
 
           totalMovies++;
-          console.log(`  ✓ ${movieDoc.title} (${movieDoc.year})`);
+          
+          // Parar si ya tenemos suficientes películas nuevas
+          if (newMovies >= 87) {
+            console.log(`\n🎯 ¡Objetivo alcanzado! Se agregaron ${newMovies} películas nuevas`);
+            break;
+          }
         } catch (error) {
           console.error(`  ✗ Error procesando ${movieData.title}:`, error.message);
         }
       }
 
       console.log(`✅ Página ${page} completada\n`);
+      
+      // Parar el bucle principal si ya tenemos suficientes películas nuevas
+      if (newMovies >= 87) {
+        break;
+      }
     }
 
+    // Verificar total final
+    const finalCount = await Movie.countDocuments();
+    
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`✅ Seed completado: ${totalMovies} películas guardadas`);
+    console.log(`✅ Seed completado: ${totalMovies} películas procesadas`);
+    console.log(`   ✨ Nuevas películas: ${newMovies}`);
+    console.log(`   ♻️  Películas actualizadas: ${existingMovies}`);
+    console.log(`   🎬 Total en BD: ${finalCount} películas`);
+    console.log(`   🎯 Objetivo: ${TARGET_TOTAL} películas`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     // Verificar índices

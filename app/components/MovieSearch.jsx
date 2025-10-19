@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import MovieCard from './MovieCard';
+import Pagination from './Pagination';
 
 function MovieSearchContent() {
   const searchParams = useSearchParams();
@@ -16,6 +17,8 @@ function MovieSearchContent() {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     async function fetchMovies() {
@@ -24,8 +27,8 @@ function MovieSearchContent() {
       
       try {
         const url = query 
-          ? `/api/movies?query=${encodeURIComponent(query)}`
-          : '/api/movies?limit=40';
+          ? `/api/movies?query=${encodeURIComponent(query)}&page=${currentPage}&limit=25`
+          : `/api/movies?page=${currentPage}&limit=25`;
         
         const res = await fetch(url);
         const data = await res.json();
@@ -35,6 +38,7 @@ function MovieSearchContent() {
         }
         
         setMovies(data.movies || []);
+        setPagination(data.pagination || null);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -43,7 +47,7 @@ function MovieSearchContent() {
     }
 
     fetchMovies();
-  }, [query]);
+  }, [query, currentPage]);
 
   return (
     <div>
@@ -52,11 +56,6 @@ function MovieSearchContent() {
         <h2 className="text-2xl font-bold text-white">
           {query ? `Resultados para "${query}"` : 'Películas Populares'}
         </h2>
-        {!loading && (
-          <p className="text-gray-400 mt-2">
-            {movies.length} película{movies.length !== 1 ? 's' : ''} encontrada{movies.length !== 1 ? 's' : ''}
-          </p>
-        )}
       </div>
 
       {/* Loading */}
@@ -92,6 +91,17 @@ function MovieSearchContent() {
             </p>
           )}
         </div>
+      )}
+
+      {/* Paginación */}
+      {!loading && !error && pagination && pagination.totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={pagination.totalPages}
+          onPageChange={setCurrentPage}
+          hasNext={pagination.hasNext}
+          hasPrev={pagination.hasPrev}
+        />
       )}
     </div>
   );

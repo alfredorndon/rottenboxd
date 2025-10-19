@@ -58,6 +58,12 @@ export default function Navbar() {
             {session ? (
               <>
                 <Link 
+                  href="/dashboard" 
+                  className="text-gray-300 hover:text-white transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link 
                   href="/profile" 
                   className="text-gray-300 hover:text-white transition-colors"
                 >

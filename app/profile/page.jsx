@@ -1,26 +1,34 @@
 /**
  * Profile Page
- * Muestra recomendaciones y calificaciones del usuario
+ * Solo para editar y eliminar perfil de usuario
  */
 
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import MovieCard from '../components/MovieCard';
-import { imageUrl } from '@/lib/tmdb';
-import StarRating from '../components/StarRating';
+import Input from '../components/Input';
+import Button from '../components/Button';
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
-  const [recommendations, setRecommendations] = useState([]);
-  const [ratings, setRatings] = useState([]);
-  const [recommendationType, setRecommendationType] = useState('');
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const [formData, setFormData] = useState({
+    name: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -31,31 +39,115 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!session) return;
 
-    async function fetchData() {
-      setLoading(true);
-      
+    async function fetchUser() {
       try {
-        // Fetch recomendaciones
-        const recoRes = await fetch('/api/recommendations?limit=24');
-        const recoData = await recoRes.json();
-        setRecommendations(recoData.recommendations || []);
-        setRecommendationType(recoData.type);
-
-        // Fetch ratings del usuario
-        const ratingsRes = await fetch('/api/ratings/user');
-        if (ratingsRes.ok) {
-          const ratingsData = await ratingsRes.json();
-          setRatings(ratingsData.ratings || []);
+        const res = await fetch('/api/user');
+        const data = await res.json();
+        
+        if (res.ok) {
+          setUser(data.user);
+          setFormData(prev => ({
+            ...prev,
+            name: data.user.name,
+          }));
         }
       } catch (error) {
-        console.error('Error al cargar datos:', error);
+        console.error('Error al cargar usuario:', error);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchData();
+    fetchUser();
   }, [session]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setSaving(true);
+
+    try {
+      const updateData = {
+        name: formData.name,
+      };
+
+      // Solo incluir contraseña si se proporciona
+      if (formData.newPassword.trim()) {
+        if (formData.newPassword !== formData.confirmPassword) {
+          setError('Las contraseñas no coinciden');
+          setSaving(false);
+          return;
+        }
+        updateData.currentPassword = formData.currentPassword;
+        updateData.newPassword = formData.newPassword;
+      }
+
+      const res = await fetch('/api/user', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccess('Perfil actualizado exitosamente');
+        setUser(data.user);
+        // Limpiar campos de contraseña
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        }));
+      } else {
+        setError(data.error || 'Error al actualizar perfil');
+      }
+    } catch (error) {
+      setError('Error al actualizar perfil');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    if (!confirm('ÚLTIMA CONFIRMACIÓN: Se eliminarán todos tus datos, ratings y la cuenta permanentemente. ¿Continuar?')) {
+      return;
+    }
+
+    setDeleting(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/user', {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        // Cerrar sesión y redirigir
+        await signOut({ callbackUrl: '/' });
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Error al eliminar cuenta');
+        setDeleting(false);
+      }
+    } catch (error) {
+      setError('Error al eliminar cuenta');
+      setDeleting(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   if (status === 'loading' || loading) {
     return (
@@ -65,113 +157,156 @@ export default function ProfilePage() {
     );
   }
 
-  if (!session) {
+  if (!session || !user) {
     return null;
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">
-          Hola, {session.user.name}
+          Mi Perfil
         </h1>
-        <p className="text-gray-400">{session.user.email}</p>
+        <p className="text-gray-400">
+          Edita tu información personal o elimina tu cuenta
+        </p>
       </div>
 
-      {/* Recomendaciones */}
-      <section className="mb-12">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white">
-              Recomendaciones para ti
-            </h2>
-            {recommendationType === 'cold-start' && (
-              <p className="text-sm text-amber-400 mt-1">
-                💡 Califica al menos 3 películas con 4-5★ para obtener recomendaciones personalizadas
-              </p>
-            )}
-            {recommendationType === 'content-based' && (
-              <p className="text-sm text-emerald-400 mt-1">
-                ✨ Basadas en tus gustos
-              </p>
-            )}
-          </div>
+      {/* Navegación */}
+      <div className="mb-8">
+        <Link 
+          href="/dashboard" 
+          className="text-emerald-500 hover:text-emerald-400"
+        >
+          ← Volver al Dashboard
+        </Link>
+      </div>
+
+      {/* Mensajes */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-6">
+          <p className="text-red-400">{error}</p>
         </div>
+      )}
 
-        {recommendations.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {recommendations.map((movie) => (
-              <MovieCard key={movie._id} movie={movie} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-            <p className="text-gray-400">
-              No hay recomendaciones disponibles todavía.
-            </p>
-            <Link href="/" className="text-emerald-500 hover:text-emerald-400 mt-2 inline-block">
-              Explora películas
-            </Link>
-          </div>
-        )}
-      </section>
+      {success && (
+        <div className="bg-emerald-900/20 border border-emerald-700 rounded-lg p-4 mb-6">
+          <p className="text-emerald-400">{success}</p>
+        </div>
+      )}
 
-      {/* Tus Calificaciones */}
-      <section>
+      {/* Formulario de Edición */}
+      <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 mb-8">
         <h2 className="text-2xl font-bold text-white mb-6">
-          Tus Calificaciones
+          Editar Perfil
         </h2>
 
-        {ratings.length > 0 ? (
-          <div className="grid gap-4">
-            {ratings.slice(0, 10).map((rating) => (
-              <Link
-                key={rating._id}
-                href={`/movie/${rating.movieId.tmdbId}`}
-                className="flex items-center gap-4 bg-gray-900 border border-gray-800 rounded-lg p-4 hover:border-emerald-600 transition-colors"
-              >
-                <div className="w-16 h-24 flex-shrink-0">
-                  {rating.movieId.poster ? (
-                    <img
-                      src={imageUrl(rating.movieId.poster, 'w92')}
-                      alt={rating.movieId.title}
-                      className="w-full h-full object-cover rounded"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center">
-                      🎬
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-white mb-1">
-                    {rating.movieId.title}
-                  </h3>
-                  {rating.movieId.year && (
-                    <p className="text-sm text-gray-400 mb-2">
-                      {rating.movieId.year}
-                    </p>
-                  )}
-                  <StarRating rating={rating.rating} readonly size="sm" />
-                </div>
-                <div className="text-right text-sm text-gray-500">
-                  {new Date(rating.createdAt).toLocaleDateString('es-MX')}
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
-            <p className="text-gray-400 mb-2">
-              Aún no has calificado ninguna película
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <Input
+            label="Nombre"
+            id="name"
+            name="name"
+            type="text"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Tu nombre"
+          />
+
+          <Input
+            label="Email"
+            id="email"
+            type="email"
+            value={user.email}
+            disabled
+            className="bg-gray-800 text-gray-500"
+          />
+          <p className="text-sm text-gray-500">
+            El email no se puede cambiar
+          </p>
+
+          <div className="border-t border-gray-700 pt-6">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Cambiar Contraseña
+            </h3>
+            
+            <div className="mb-6">
+              <Input
+                label="Contraseña Actual"
+                id="currentPassword"
+                name="currentPassword"
+                type="password"
+                value={formData.currentPassword}
+                onChange={handleChange}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <div className="mb-6">
+              <Input
+                label="Nueva Contraseña"
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                value={formData.newPassword}
+                onChange={handleChange}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+
+            <div className="mb-6">
+              <Input
+                label="Confirmar Nueva Contraseña"
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Repite la nueva contraseña"
+              />
+            </div>
+
+            <p className="text-sm text-gray-500">
+              Deja en blanco si no quieres cambiar la contraseña
             </p>
-            <Link href="/" className="text-emerald-500 hover:text-emerald-400">
-              Comienza a calificar
-            </Link>
           </div>
-        )}
-      </section>
+
+          <Button
+            type="submit"
+            disabled={saving}
+            className="w-full"
+          >
+            {saving ? 'Guardando...' : 'Guardar Cambios'}
+          </Button>
+        </form>
+      </div>
+
+      {/* Zona de Peligro - Eliminar Cuenta */}
+      <div className="bg-red-900/10 border border-red-800 rounded-lg p-8">
+        <h2 className="text-2xl font-bold text-red-400 mb-4">
+          Zona de Peligro
+        </h2>
+        
+        <p className="text-gray-400 mb-4">
+          Una vez que elimines tu cuenta, no hay vuelta atrás. Se eliminarán:
+        </p>
+        
+        <ul className="text-gray-400 mb-6 list-disc list-inside space-y-1">
+          <li>Tu perfil de usuario</li>
+          <li>Todas tus calificaciones de películas</li>
+          <li>Tu historial de actividad</li>
+          <li>Acceso a la aplicación</li>
+        </ul>
+
+        <Button
+          onClick={handleDeleteAccount}
+          disabled={deleting}
+          variant="outline"
+          className="w-full border-red-600 text-red-400 hover:bg-red-600 hover:text-white"
+        >
+          {deleting ? 'Eliminando...' : 'Eliminar Mi Cuenta'}
+        </Button>
+      </div>
     </div>
   );
 }
